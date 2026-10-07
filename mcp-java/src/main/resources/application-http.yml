@@ -1,0 +1,24 @@
+spring:
+  main:
+    web-application-type: servlet
+  ai:
+    mcp:
+      server:
+        stdio: false
+        protocol: STREAMABLE
+        streamable-http:
+          mcp-endpoint: /mcp
+server:
+  address: ${DATASHEET_HOST:127.0.0.1}
+  port: ${DATASHEET_PORT:8000}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+datasheet:
+  public-base-url: ${DATASHEET_PUBLIC_BASE_URL:http://127.0.0.1:8000}
+  transport-instructions: >
+    Use import_xtf_attachment for Open WebUI chat attachments instead of copying XML.
+    export_xtf returns a download_url: show that exact URL as a Markdown download link.
+    Set include_xml=true only when XML text is explicitly needed.

@@ -5,14 +5,19 @@ import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.spec.McpSchema.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import java.util.*;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("http")
 class McpIntegrationTest {
     @LocalServerPort int port;
+    private String rawSessionId;
+    private String rawProtocolVersion;
     private McpSyncClient connect() {
         return McpClient.sync(HttpClientStreamableHttpTransport.builder("http://127.0.0.1:" + port + "/mcp").build()).build();
     }
@@ -108,15 +113,63 @@ class McpIntegrationTest {
     }
     @SuppressWarnings("unchecked")
     private Map<String, Object> rawCall(String body) throws Exception {
-        var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port + "/mcp"))
-                .header("Content-Type", "application/json").header("Accept", "application/json, text/event-stream")
+        if (rawSessionId == null) {
+            var initialized = java.net.http.HttpClient.newHttpClient().send(rawRequest()
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString("""
+                        {"jsonrpc":"2.0","id":1,"method":"initialize","params":{
+                          "protocolVersion":"2025-11-25","capabilities":{},
+                          "clientInfo":{"name":"raw-http-test","version":"1.0"}}}
+                        """)).build(), java.net.http.HttpResponse.BodyHandlers.ofString());
+            assertThat(initialized.statusCode()).isEqualTo(200);
+            rawSessionId = initialized.headers().firstValue("Mcp-Session-Id").orElseThrow();
+            rawProtocolVersion = rawResult(initialized.body()).get("protocolVersion").toString();
+            var notification = java.net.http.HttpClient.newHttpClient().send(rawRequest()
+                    .POST(java.net.http.HttpRequest.BodyPublishers.ofString(
+                            "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}")).build(),
+                    java.net.http.HttpResponse.BodyHandlers.discarding());
+            assertThat(notification.statusCode()).isEqualTo(202);
+        }
+        var request = rawRequest()
                 .POST(java.net.http.HttpRequest.BodyPublishers.ofString(body)).build();
         var response = java.net.http.HttpClient.newHttpClient().send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(200);
-        String json = response.body().strip();
+        return rawResult(response.body());
+    }
+    private java.net.http.HttpRequest.Builder rawRequest() {
+        var request = java.net.http.HttpRequest.newBuilder(java.net.URI.create("http://127.0.0.1:" + port + "/mcp"))
+                .timeout(java.time.Duration.ofSeconds(30))
+                .header("Content-Type", "application/json").header("Accept", "application/json, text/event-stream");
+        if (rawSessionId != null) request.header("Mcp-Session-Id", rawSessionId)
+                .header("MCP-Protocol-Version", rawProtocolVersion);
+        return request;
+    }
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> rawResult(String body) {
+        String json = body.strip();
         if (!json.startsWith("{")) json = json.lines().filter(line -> line.startsWith("data:"))
                 .map(line -> line.substring(5).strip()).findFirst().orElseThrow();
         return (Map<String, Object>) new tools.jackson.databind.json.JsonMapper().readValue(json, Map.class).get("result");
+    }
+    @AfterEach void closeRawSession() throws Exception {
+        if (rawSessionId != null) {
+            var response = java.net.http.HttpClient.newHttpClient().send(rawRequest().DELETE().build(),
+                    java.net.http.HttpResponse.BodyHandlers.discarding());
+            assertThat(response.statusCode()).isEqualTo(200);
+        }
+    }
+
+    @Test void seriesExportAndReimportOverHttp() throws Exception {
+        try (var client = connect()) {
+            client.initialize();
+            var imported = payload(call(client, "import_xtf", Map.of("xml", DatasheetServiceTest.fixture("series"))));
+            var exported = payload(call(client, "export_xtf", Map.of("draft_id", imported.get("draft_id"),
+                    "expected_revision", 1, "include_xml", true)));
+            assertThat(exported).containsKeys("download_url", "expires_at", "xml");
+            var reimported = payload(call(client, "import_xtf", Map.of("xml", exported.get("xml"))));
+            assertThat(reimported).containsEntry("kind", "series");
+            assertThat(payload(call(client, "validate_datasheet", Map.of("draft_id", reimported.get("draft_id"),
+                    "expected_revision", 1)))).containsEntry("valid", true);
+        }
     }
 
     @Test void invalidArgumentsAndValidationFailuresHaveDistinctResults() {

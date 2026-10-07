@@ -4,8 +4,10 @@ import ch.so.agi.datasheet.service.ExportStore;
 import java.nio.charset.StandardCharsets;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.context.annotation.Profile;
 
 @RestController
+@Profile("http")
 public class ExportController {
     private final ExportStore store;
     public ExportController(ExportStore store) { this.store = store; }

@@ -2,7 +2,7 @@ package ch.so.agi.datasheet.mcp;
 
 import ch.so.agi.datasheet.model.FieldCatalog;
 import ch.so.agi.datasheet.service.*;
-import io.modelcontextprotocol.server.McpStatelessServerFeatures.SyncToolSpecification;
+import io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema.*;
 import org.springframework.context.annotation.*;
 import tools.jackson.databind.ObjectMapper;
@@ -15,7 +15,10 @@ import java.util.function.Function;
 public class McpServerTools {
     private final DatasheetService service;
     private final ObjectMapper mapper;
-    public McpServerTools(DatasheetService service, ObjectMapper mapper) { this.service = service; this.mapper = mapper; }
+    private final boolean http;
+    public McpServerTools(DatasheetService service, ObjectMapper mapper, Optional<ExportStore> exports) {
+        this.service = service; this.mapper = mapper; this.http = exports.isPresent();
+    }
 
     @Bean
     public List<SyncToolSpecification> mcpToolSpecifications() {
@@ -26,7 +29,9 @@ public class McpServerTools {
             tool("create_datasheet", "Dataset oder Serie im Speicher anlegen. Anfangswerte sind optional; keine erfundenen Pflichtwerte.",
                 args("kind", Map.of("type", "string", "enum", List.of("dataset", "series")), "values", metadataSchema()),
                 List.of("kind"), false, a -> service.create(text(a, "kind"), values(a, false))),
-            tool("import_xtf", "XTF 2.4 importieren. import_key verwendet einen bestehenden Entwurf wieder. Für Chat-Anhänge import_xtf_attachment verwenden.",
+            tool("import_xtf", "XTF 2.4 importieren. import_key verwendet einen bestehenden Entwurf wieder. "
+                    + (http ? "Für Open-WebUI-Chat-Anhänge import_xtf_attachment verwenden."
+                            : "Der Client liest die Originaldatei und übergibt deren XML."),
                 args("xml", string(), "import_key", string()), List.of("xml"), false,
                 a -> service.importXtf(text(a, "xml"), optional(a, "import_key"))),
             tool("read_datasheet", "Entwurf samt Revision und internen Attribut-/Ausgabe-IDs lesen.",
@@ -51,7 +56,9 @@ public class McpServerTools {
             tool("validate_datasheet", "Gewünschte Revision mit ilivalidator 1.15.0 prüfen; liefert valid und Meldungen.",
                 editing(false), List.of("draft_id", "expected_revision"), true,
                 a -> service.validate(text(a, "draft_id"), revision(a))),
-            tool("export_xtf", "Gewünschte Revision als XTF 2.4 erzeugen und dieselben Bytes validieren. Liefert einen Download-Link für eine Stunde. Diesen unverändert als Markdown-Link anzeigen. XML nur mit include_xml=true.",
+            tool("export_xtf", "Gewünschte Revision als XTF 2.4 erzeugen und dieselben Bytes validieren. "
+                    + (http ? "Liefert einen Download-Link für eine Stunde. Diesen unverändert als Markdown-Link anzeigen. XML nur mit include_xml=true."
+                            : "include_xml=true ist erforderlich. Liefert XML und file_name; der Client speichert das XML unverändert als UTF-8. Kein Download-Link."),
                 editing(false, "include_xml", Map.of("type", "boolean", "default", false)),
                 List.of("draft_id", "expected_revision"), true,
                 a -> service.export(text(a, "draft_id"), revision(a), bool(a, "include_xml"))),

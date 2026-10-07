@@ -1,0 +1,14 @@
+spring:
+  main:
+    web-application-type: none
+  ai:
+    mcp:
+      server:
+        stdio: true
+
+datasheet:
+  transport-instructions: >
+    The client reads original XTF files and passes their XML to import_xtf.
+    Always set include_xml=true for export_xtf over STDIO. The result contains
+    validated XML and file_name. The client saves that exact XML locally as UTF-8.
+    Browser download links and import_xtf_attachment are only available with HTTP.

@@ -139,7 +139,7 @@ def check_mcp(port: str) -> None:
             "Den Java-Server zuerst starten, zum Beispiel:\n"
             f"  DATASHEET_HOST=0.0.0.0 DATASHEET_PORT={port} "
             f"DATASHEET_PUBLIC_BASE_URL=http://127.0.0.1:{port} "
-            "java -jar build/libs/datasheet-mcp.jar"
+            "java -jar build/libs/datasheet-mcp.jar --spring.profiles.active=http"
         ) from error
 
 

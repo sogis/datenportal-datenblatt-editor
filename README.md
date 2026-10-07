@@ -182,6 +182,12 @@ docs/           Entwickler- und Betreiberdokumentation
 spec/           Eingangsspezifikation und Mockups
 ```
 
+## Java-MCP
+
+Der separate [Datenblatt-MCP](mcp-java/README.md) unterstützt stdio und Streamable
+HTTP über Spring-Profile. Sein eigenes Docker-Image enthält auch die Originalmodelle
+für externe Validierung; der Webeditor bleibt eine clientseitige Anwendung.
+
 ## Dokumentation
 
 - [Architektur](docs/architecture.md)

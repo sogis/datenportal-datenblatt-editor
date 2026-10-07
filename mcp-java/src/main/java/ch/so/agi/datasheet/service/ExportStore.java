@@ -7,9 +7,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 
 /** Immutable, short-lived copies of bytes that have already passed ilivalidator. */
 @Component
+@Profile("http")
 public class ExportStore {
     public record Export(byte[] bytes, String fileName, Instant expiresAt) {
         public Export { bytes = bytes.clone(); }

@@ -35,8 +35,8 @@ public class DatasheetService {
     // Lock order is imports -> draft. Ordinary edits only acquire a draft lock.
     private final Map<String, Imported> imports = new HashMap<>();
     private final InterlisService interlis;
-    private final ExportStore exports;
-    public DatasheetService(InterlisService interlis, ExportStore exports) {
+    private final Optional<ExportStore> exports;
+    public DatasheetService(InterlisService interlis, Optional<ExportStore> exports) {
         this.interlis = interlis; this.exports = exports;
     }
 
@@ -121,6 +121,8 @@ public class DatasheetService {
                 "valid", report.valid(), "messages", report.messages());
     }
     public Map<String, Object> export(String id, long revision, boolean includeXml) {
+        if (exports.isEmpty() && !includeXml)
+            throw new ToolError("invalid_arguments", "export_xtf über STDIO benötigt include_xml=true; der Client speichert das XML lokal.");
         Snapshot snapshot = snapshot(id, revision);
         String xml = interlis.write(snapshot.transfer());
         var report = interlis.validate(xml);
@@ -130,10 +132,14 @@ public class DatasheetService {
         String filename = identifier.replaceAll("[^\\p{L}\\p{N}._-]", "_");
         if (filename.isBlank()) filename = "dataset";
         String fileName = filename + ".xtf";
-        var link = exports.put(xml.getBytes(StandardCharsets.UTF_8), fileName);
         Map<String, Object> result = new LinkedHashMap<>(Map.of(
                 "draft_id", id, "revision", snapshot.revision(), "file_name", fileName,
-                "download_url", link.url(), "expires_at", link.expiresAt().toString(), "messages", report.messages()));
+                "messages", report.messages()));
+        exports.ifPresent(store -> {
+            var link = store.put(xml.getBytes(StandardCharsets.UTF_8), fileName);
+            result.put("download_url", link.url());
+            result.put("expires_at", link.expiresAt().toString());
+        });
         if (includeXml) result.put("xml", xml);
         return result;
     }

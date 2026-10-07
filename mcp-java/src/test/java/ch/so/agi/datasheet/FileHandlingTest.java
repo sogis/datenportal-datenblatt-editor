@@ -24,7 +24,7 @@ class FileHandlingTest {
     @AfterAll static void stop() { interlis.close(); }
     @BeforeEach void setup() {
         clock = new MutableClock(); exports = new ExportStore(clock, "https://downloads.example/prefix/");
-        service = new DatasheetService(interlis, exports);
+        service = new DatasheetService(interlis, Optional.of(exports));
     }
     static String token(Map<String, Object> result) {
         String url = result.get("download_url").toString(); return url.substring(url.lastIndexOf('/') + 1);
@@ -45,7 +45,7 @@ class FileHandlingTest {
     @Test void failedImportDoesNotReserveKeyAndFreshServiceHasNoMapping() throws Exception {
         assertThatThrownBy(() -> service.importXtf("<broken>", "key")).isInstanceOf(ToolError.class);
         var first = service.importXtf(fixture("dataset"), "key");
-        var restarted = new DatasheetService(interlis, exports);
+        var restarted = new DatasheetService(interlis, Optional.of(exports));
         assertThat(restarted.importXtf(fixture("dataset"), "key")).doesNotContainEntry("draft_id", id(first));
     }
     @Test void concurrentImportsCreateOneDraft() throws Exception {

@@ -73,7 +73,7 @@ grep OPENWEBUI_ADMIN_PASSWORD .env
 ### 2. Java-MCP bauen und starten
 
 ```sh
-./gradlew test bootJar
+./gradlew check bootJar
 ```
 
 In einem eigenen Terminal läuft der Server während der ganzen Demo:
@@ -82,7 +82,7 @@ In einem eigenen Terminal läuft der Server während der ganzen Demo:
 DATASHEET_HOST=0.0.0.0 \
 DATASHEET_PORT=8001 \
 DATASHEET_PUBLIC_BASE_URL=http://127.0.0.1:8001 \
-java -jar build/libs/datasheet-mcp.jar
+java -jar build/libs/datasheet-mcp.jar --spring.profiles.active=http
 ```
 
 Der MCP muss für das Seeding laufen: Das Script prüft seinen Health-Endpunkt,
@@ -123,7 +123,7 @@ Danach ist die Demo einsatzbereit: `http://127.0.0.1:3001` öffnen und mit
 DATASHEET_HOST=0.0.0.0 \
 DATASHEET_PORT=8001 \
 DATASHEET_PUBLIC_BASE_URL=http://127.0.0.1:8001 \
-java -jar build/libs/datasheet-mcp.jar
+java -jar build/libs/datasheet-mcp.jar --spring.profiles.active=http
 
 # Terminal 2: Open WebUI
 docker compose up -d        # starten

@@ -15,29 +15,53 @@ direkte JAR-Aufruf verwendet dagegen das mit `java -version` angezeigte JDK.
 Alle folgenden Gradle-Befehle im Verzeichnis `mcp-java` ausführen:
 
 ```sh
-./gradlew test bootJar
+./gradlew check bootJar
+# Standard: STDIO, der MCP-Client hält stdin offen.
 java -jar build/libs/datasheet-mcp.jar
+# HTTP für Open WebUI, Health und Browser-Downloads:
+java -jar build/libs/datasheet-mcp.jar --spring.profiles.active=http
 ```
 
-Alternativ: `./gradlew bootRun`.
+Wie `../interlis-mcp` verwendet das JAR standardmässig das Spring-Profil
+`stdio`; das Docker-Image setzt `SPRING_PROFILES_ACTIVE=http`. Umschalten ist
+über `--spring.profiles.active=stdio|http` oder `SPRING_PROFILES_ACTIVE` möglich.
+Genau eines der beiden Profile verwenden.
 
-- Streamable HTTP: `http://127.0.0.1:8000/mcp`
-- Health: `http://127.0.0.1:8000/actuator/health`
-- Konfiguration: `DATASHEET_HOST` und `DATASHEET_PORT`.
-- MCP ist wie im Referenzprojekt synchron und `STATELESS`. Entwürfe sind
-  trotzdem anwendungsseitig im Speicher vorhanden und über `draft_id` adressiert.
-- Keine Benutzerverwaltung, Datenbank, API-Schlüssel oder dauerhafte Entwurfsspeicherung.
-  Der Standardbetrieb ist lokal. Alle Clients dieses Prozesses teilen denselben
-  Entwurfsraum; IDs sind keine Benutzer-Zugriffskontrolle.
-- Neustart verwirft alle Entwürfe; `discard_datasheet` gibt sie gezielt frei.
-  Es gibt keine automatische Ablaufzeit.
+| Einstellung | `stdio` | `http` |
+|---|---|---|
+| Web-Anwendung | `none`, kein HTTP-Port | `servlet` |
+| MCP-Transport | stdin/stdout | `STREAMABLE`, `/mcp` |
+| Health und Downloads | nicht verfügbar | `/actuator/health`, `/api/exports/{token}` |
+| Export | `include_xml=true`, Client speichert XML | Download-Link, XML optional |
+
+Für Entwicklung: `./gradlew bootRun` reicht stdin durch. Für HTTP:
+`./gradlew bootRun --args='--spring.profiles.active=http'`. MCP-Clients starten
+mit `java -jar` oder Docker; Gradle-Ausgaben sind kein MCP-Protokoll.
+
+- HTTP: `http://127.0.0.1:8000/mcp`; Health: `http://127.0.0.1:8000/actuator/health`.
+  `DATASHEET_HOST`, `DATASHEET_PORT` und `DATASHEET_PUBLIC_BASE_URL` gelten für HTTP.
+- Beide Transporte sind synchron, mit Request-Timeout `1h`. Banner sind aus;
+  Logs gehen auf stderr, standardmässig mit Niveau `WARN`.
+- **HTTP-Transportänderung:** `STREAMABLE` ersetzt den bisherigen `STATELESS`-
+  Betrieb. Clients müssen initialisieren, `notifications/initialized` senden,
+  den ausgehandelten `MCP-Protocol-Version`- und `Mcp-Session-Id`-Header bei
+  Folgeaufrufen verwenden und ihre Sitzung mit `DELETE /mcp` schliessen.
+- Entwürfe bleiben anwendungsseitig im Speicher über `draft_id` adressiert.
+  Alle Clients und MCP-Sitzungen dieses Prozesses teilen denselben Entwurfsraum;
+  IDs und Sitzungen sind keine Benutzer-Zugriffskontrolle.
+- Keine Benutzerverwaltung, Datenbank, API-Schlüssel oder dauerhafte
+  Entwurfsspeicherung. Neustart verwirft Entwürfe; `discard_datasheet` gibt sie
+  gezielt frei. Es gibt keine automatische Ablaufzeit.
+- Bei EOF auf stdin schliesst der stdio-Prozess seinen Spring-Kontext und
+  beendet sich. stdout enthält ausschliesslich JSON-RPC-Zeilen.
 
 ## Versionen und Aufbau
 
 Java 25, Gradle 9.7.1 (Groovy), Spring Boot 4.1.1, Dependency-Management-Plugin
-1.1.7, Spring AI 2.0.1. INTERLIS: ilivalidator 1.15.0, iox-ili 1.24.4,
-iox-api 1.0.4, ili2c-core/-tool 5.6.8 und ehibasics 1.4.1. Die Versionen
-entsprechen dem Referenzprojekt beziehungsweise der ilivalidator-POM.
+1.1.7, Spring AI 2.0.1 und MCP-SDK 2.0.1 (explizite BOM). INTERLIS: ilivalidator
+1.15.0, iox-ili 1.24.4, iox-api 1.0.4, ili2c-core/-tool 5.6.8 und ehibasics 1.4.1.
+Die Spring-/MCP-Versionen entsprechen dem Referenzprojekt;
+INTERLIS-Abhängigkeiten entsprechen der ilivalidator-POM.
 
 `mcp` registriert die zwölf Werkzeuge explizit mit `SyncToolSpecification`.
 `model` enthält modellgebundene Datenknoten und den gemeinsamen Feldkatalog;
@@ -66,7 +90,7 @@ Feldkatalogs, Mappings und der Tests.
 | `upsert_issue` | `draft_id`, `expected_revision`, `values`; optional `issue_id` |
 | `remove_issue` | `draft_id`, `expected_revision`, `issue_id` |
 | `validate_datasheet` | `draft_id`, `expected_revision` |
-| `export_xtf` | `draft_id`, `expected_revision`; optional `include_xml` (Standard false) |
+| `export_xtf` | `draft_id`, `expected_revision`; `include_xml` (HTTP: Standard false; stdio: true erforderlich) |
 | `discard_datasheet` | `draft_id`, `expected_revision` |
 
 Ein neu erzeugter/importierter Entwurf hat Revision 1. Erstellen, Lesen und
@@ -144,11 +168,19 @@ nur XML-Knoten umgeordnet, keine Fachwerte oder XML-Schablonen erzeugt.
 Schweregrad, Text und, soweit verfügbar, `object_id` und `model_element`.
 Ein ungültiger Entwurf ist ein erfolgreicher Prüfaufruf mit `valid: false`.
 
-`export_xtf` liefert nur bei erfolgreicher Validierung `download_url`, `expires_at`,
-`file_name`, `draft_id`, Revision und Meldungen. Mit `include_xml=true` kommt `xml`
-hinzu. **Schnittstellenänderung ab 0.2.0:** Bestehende Clients, die XML im
-Werkzeugergebnis benötigen, müssen dieses Argument ausdrücklich setzen.
-Andernfalls erhält der Client bei Validierungsfehlern `isError: true` und
+Im HTTP-Profil liefert `export_xtf` nur bei erfolgreicher Validierung
+`download_url`, `expires_at`, `file_name`, `draft_id`, Revision und Meldungen.
+Mit `include_xml=true` kommt `xml` hinzu; der Standard bleibt `false`.
+
+Im stdio-Profil ist **`include_xml=true` erforderlich**. Die Antwort enthält
+`draft_id`, `revision`, `file_name`, `messages` und das validierte `xml`, ohne
+`download_url` oder `expires_at`. Der Client speichert genau dieses XML als
+UTF-8-Datei lokal. Ein fehlendes oder auf `false` gesetztes `include_xml` liefert
+`isError: true`, `code: invalid_arguments` und einen Hinweis auf
+`include_xml=true`, ohne einen Export zu erzeugen. Der Server schreibt keine
+Exportdatei in das Dateisystem des Clients.
+
+Bei Validierungsfehlern erhält der Client `isError: true` und
 `validation_failed`. Fehlerhafte Argumente, unbekannte IDs, Mehrdeutigkeiten
 und Revisionskonflikte liefern ebenfalls `isError: true`. Fehler aus dem
 Werkzeughandler enthalten einen strukturierten `code`; die vorgeschaltete
@@ -179,13 +211,16 @@ diese globale Sperre nicht.
 ## Tests
 
 ```sh
-./gradlew test bootJar
+./gradlew check bootJar
 ```
 
 Die Tests prüfen fachliche Roundtrips, Pflichtwerte und Constraints,
 Änderungssemantik, Mehrdeutigkeiten, parallele Revisionen und isolierte
-Validierungen sowie den vollständigen MCP-HTTP-Vertrag. Testmodelle werden
-lokal geladen. Test-XTFs stammen aus dem Snapshot des bestehenden Editors.
+Validierungen sowie die MCP-Verträge über HTTP und das gebaute JAR über stdio.
+`check` enthält `test` und `e2eTest`; letzteres prüft zusätzlich Nullwerte,
+genaue Revisionszahlen, grosse/parallele JSON-RPC-Antworten und EOF-Shutdown.
+Testmodelle werden lokal geladen. Test-XTFs stammen aus dem Snapshot des
+bestehenden Editors.
 
 Zusätzlicher Test mit dem tatsächlichen TypeScript-Parser des Editors
 (nach `npm ci` im Repository-Hauptverzeichnis und dem Gradle-Testlauf):
@@ -204,20 +239,81 @@ python3 scripts/smoke.py
 
 Optional eine andere Basisadresse als Argument übergeben.
 
-## Docker
+## Docker und Veröffentlichung
+
+Aus `mcp-java`:
 
 ```sh
 docker build -t datasheet-mcp .
+# HTTP ist im Image der Standard.
 docker run --rm -p 127.0.0.1:8000:8000 datasheet-mcp
+# STDIO: stdin offen halten, kein -t und keine Portfreigabe.
+docker run --rm -i -e SPRING_PROFILES_ACTIVE=stdio datasheet-mcp
 ```
 
-Das Image nutzt dieselben Gradle-/Java-Basisversionen wie das Referenzprojekt
-und läuft als unprivilegierter Benutzer. Datenbank und persistente Volumes
-sind für den MCP-Server nicht erforderlich.
+Das Image enthält den Java-MCP und läuft als unprivilegierter Benutzer mit
+Java 25. Datenbank und persistente Entwurfs-Volumes sind nicht erforderlich.
+Das bestehende Editor-Image enthält weiterhin die Weboberfläche.
 
-Für die lokale Demo steht unter [`OPENWEBUI-DEMO.md`](OPENWEBUI-DEMO.md) eine
-eigene Open-WebUI-Compose-Instanz bereit, die Provider, Modelle, den
-MCP-Toolserver und das XTF-Workspace-Tool automatisch konfiguriert.
+Der eigene Workflow `.github/workflows/publish-mcp-container.yml` prüft bei
+Push, Pull Request und manuellem Start Java, beide Transporte und den echten
+Editor-Parser. Er baut `linux/amd64` und `linux/arm64` mit demselben bereits
+getesteten JAR (Docker-Target `canonical`), prüft HTTP, offline stdio, grosse
+parallele Antworten, EOF und die Originalmodelle auf beiden Architekturen.
+Auf amd64 prüft er zusätzlich Originalanhänge mit Open WebUI 0.11.3.
+Er veröffentlicht anschliessend bei Push oder manuellem Start exakt die
+geprüften Images, ohne sie erneut zu bauen, auf:
+
+- Docker Hub: `sogis/datenportal-datenblatt-mcp`
+- GHCR: `ghcr.io/sogis/datenportal-datenblatt-mcp`
+
+Tags: `0.2.<github.run_number>`, `sha-<kurzer-commit-sha>` und `latest` nur auf
+dem Default-Branch. Multiarch-Manifeste werden vor dem Setzen der SHA-/latest-
+Tags auf beide Plattformen geprüft. Docker Hub verwendet die bestehenden
+Secrets `DOCKERHUB_USERNAME` und `DOCKERHUB_TOKEN`; GHCR nutzt `GITHUB_TOKEN`.
+Der Webeditor-Workflow und seine Registries bleiben erhalten.
+
+Lokale Prüfungen des CI-Targets (JDK 25 auch für den Modellcompiler auswählen):
+
+```sh
+./gradlew check bootJar
+docker build --target canonical -t datasheet-mcp:verified .
+python3 scripts/check-image.py --image datasheet-mcp:verified
+python3 scripts/check-openwebui.py --image datasheet-mcp:verified
+```
+
+Die Skripte verwenden eigene wegwerfbare Container und Netzwerke und räumen
+sie anschliessend auf. Es werden keine bestehenden Open-WebUI-Instanzen geändert.
+
+### Originalmodelle ohne Editor-Checkout übernehmen
+
+Das Image enthält beide unveränderten Originalmodelle zusätzlich unter
+`/app/models`. Sie stammen aus denselben Quellen wie die JAR-Ressourcen und
+enthalten auch das Office-Modell im Basismodell. Externe Office-Prüfung und
+ilivalidator benötigen weiterhin lokale `.ili`-Dateien.
+
+Serverstart und Modellübernahme müssen **denselben festgelegten Image-Digest**
+verwenden. Beispiel nach Veröffentlichung, Digest durch den ausgewählten Wert
+ersetzen (kein `latest` für einen reproduzierbaren Integratorlauf):
+
+```sh
+DATASHEET_IMAGE='sogis/datenportal-datenblatt-mcp@sha256:<digest>'
+mkdir -p ./models/datasheet
+MODEL_CONTAINER=$(docker create "$DATASHEET_IMAGE")
+docker cp "$MODEL_CONTAINER:/app/models/." ./models/datasheet/
+docker rm "$MODEL_CONTAINER"
+docker run --rm -i -e SPRING_PROFILES_ACTIVE=stdio "$DATASHEET_IMAGE"
+```
+
+Der Container muss zum Kopieren nicht laufen. Im Themenintegrator anschliessend
+beispielsweise `model_dirs = ["./models/datasheet"]` statt eines Editor-Checkout-
+Pfads verwenden. Für den MCP-Start wird `docker` mit den oben gezeigten Argumenten
+benötigt; die Anpassung seines Adapters erfolgt separat im Integratorprojekt.
+XTF weiterhin mit `include_xml=true` exportieren und clientseitig lokal speichern.
+Browser-Downloadlinks benötigen das Profil `http` und eine erreichbare öffentliche
+Basisadresse.
+
+Für die lokale Open-WebUI-Demo siehe [OPENWEBUI-DEMO.md](OPENWEBUI-DEMO.md).
 
 ## Open WebUI 0.11.3: XTF-Anhang importieren und herunterladen
 
@@ -335,8 +431,8 @@ und zum Download. Er testet kein LLM und braucht keine Provider-Schlüssel.
 Beispiel (aus `mcp-java`, Docker Desktop, freie Ports 18080 und 18081):
 
 ```sh
-./gradlew test bootJar
-java -jar build/libs/datasheet-mcp.jar --server.address=0.0.0.0 --server.port=18080 \
+./gradlew check bootJar
+java -jar build/libs/datasheet-mcp.jar --spring.profiles.active=http --server.address=0.0.0.0 --server.port=18080 \
   --datasheet.public-base-url=http://127.0.0.1:18080
 ```
 

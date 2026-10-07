@@ -13,7 +13,7 @@ class DatasheetServiceTest {
     DatasheetService service;
     @BeforeAll static void start() throws Exception { interlis = new InterlisService(); }
     @AfterAll static void stop() { interlis.close(); }
-    @BeforeEach void setup() { service = new DatasheetService(interlis, new ch.so.agi.datasheet.service.ExportStore(java.time.Clock.systemUTC(), "http://127.0.0.1:8000")); }
+    @BeforeEach void setup() { service = new DatasheetService(interlis, Optional.of(new ch.so.agi.datasheet.service.ExportStore(java.time.Clock.systemUTC(), "http://127.0.0.1:8000"))); }
     static String fixture(String name) throws Exception {
         try (var input = DatasheetServiceTest.class.getResourceAsStream("/" + name + ".xtf")) {
             return new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);

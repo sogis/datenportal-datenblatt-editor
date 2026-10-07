@@ -1,39 +1,36 @@
 spring:
+  profiles:
+    default: stdio
+  main:
+    banner-mode: "off"
   application:
     name: datasheet-mcp
   ai:
     mcp:
       server:
-        protocol: STATELESS
         type: SYNC
+        request-timeout: 1h
         name: Datenblatt MCP Kanton Solothurn
         version: 0.2.0
-        instructions: >
-          Read describe_schema before editing unfamiliar fields. Use draft_id and the
-          latest revision returned by read_datasheet or a mutation. Supply expected_revision
-          for mutations, validation and export. On conflict, read again and reconsider the change.
-          Use internal attribute_id and issue_id for unambiguous updates.
-          Never invent missing mandatory values or merge attributes by similar meaning.
-          Omitted fields remain unchanged; null clears a field. Incomplete drafts are allowed.
-          Validate before export; explain validation errors to the user.
-          Use import_xtf_attachment for Open WebUI chat attachments instead of copying XML.
-          export_xtf returns a download_url: show that exact URL as a Markdown download link.
-          Set include_xml=true only when XML text is explicitly needed.
-          Drafts exist only until discarded or the server restarts.
+        instructions: ${datasheet.common-instructions} ${datasheet.transport-instructions}
         capabilities:
+          tool: true
           resource: false
           prompt: false
           completion: false
   jackson:
     property-naming-strategy: SNAKE_CASE
-server:
-  address: ${DATASHEET_HOST:127.0.0.1}
-  port: ${DATASHEET_PORT:8000}
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
+logging:
+  level:
+    root: WARN
 
 datasheet:
-  public-base-url: ${DATASHEET_PUBLIC_BASE_URL:http://127.0.0.1:8000}
+  common-instructions: >
+    Read describe_schema before editing unfamiliar fields. Use draft_id and the
+    latest revision returned by read_datasheet or a mutation. Supply expected_revision
+    for mutations, validation and export. On conflict, read again and reconsider the change.
+    Use internal attribute_id and issue_id for unambiguous updates.
+    Never invent missing mandatory values or merge attributes by similar meaning.
+    Omitted fields remain unchanged; null clears a field. Incomplete drafts are allowed.
+    Validate before export; explain validation errors to the user.
+    Drafts exist only until discarded or the server restarts.

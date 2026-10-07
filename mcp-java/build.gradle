@@ -10,7 +10,12 @@ repositories {
     mavenCentral()
     maven { url = uri('https://jars.interlis.ch') }
 }
-dependencyManagement { imports { mavenBom 'org.springframework.ai:spring-ai-bom:2.0.1' } }
+dependencyManagement {
+    imports {
+        mavenBom 'org.springframework.ai:spring-ai-bom:2.0.1'
+        mavenBom 'io.modelcontextprotocol.sdk:mcp-bom:2.0.1'
+    }
+}
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
@@ -28,3 +33,24 @@ tasks.withType(Test).configureEach {
     useJUnitPlatform()
     testLogging { events 'failed', 'skipped'; exceptionFormat = 'full' }
 }
+tasks.named('bootRun') { standardInput = System.in }
+
+sourceSets {
+    e2e {
+        compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
+        runtimeClasspath += output + compileClasspath
+    }
+}
+configurations {
+    e2eImplementation.extendsFrom testImplementation
+    e2eRuntimeOnly.extendsFrom testRuntimeOnly
+}
+tasks.register('e2eTest', Test) {
+    description = 'Checks the packaged JAR over STDIO, including clean EOF shutdown.'
+    group = 'verification'
+    dependsOn tasks.bootJar
+    testClassesDirs = sourceSets.e2e.output.classesDirs
+    classpath = sourceSets.e2e.runtimeClasspath
+    shouldRunAfter tasks.test
+}
+tasks.named('check') { dependsOn tasks.named('e2eTest') }
