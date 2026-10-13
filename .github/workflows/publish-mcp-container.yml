@@ -39,6 +39,9 @@ jobs:
       - name: Check the real editor parser
         working-directory: mcp-java
         run: node scripts/check-editor.mjs
+      - name: Verify publication of the restored executable
+        working-directory: mcp-java
+        run: ./gradlew --no-daemon -PmcpVersion=$IMAGE_VERSION -PpublishCanonicalArtifacts=true publishExecutablePublicationToExecutableVerificationRepository verifyPublishedExecutable -PexecutableRepository="file://$PWD/build/executable-repository/"
       - uses: actions/upload-artifact@v4
         with:
           name: canonical-mcp-jar

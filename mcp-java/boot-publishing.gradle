@@ -1,10 +1,13 @@
 // Publish the executable application in addition to the existing container images.
 apply plugin: 'maven-publish'
+def canonicalExecutable = providers.gradleProperty('publishCanonicalArtifacts').map { it.toBoolean() }.getOrElse(false)
 publishing {
     publications {
         executable(MavenPublication) {
             artifactId = rootProject.name
-            artifact(tasks.named('bootJar')) { classifier = 'boot' }
+            // Disabled archive tasks are omitted by Gradle publication; publish the restored file explicitly.
+            def executable = canonicalExecutable ? tasks.named('bootJar').get().archiveFile.get().asFile : tasks.named('bootJar')
+            artifact(executable) { classifier = 'boot'; extension = 'jar' }
             pom { name = rootProject.name; description = 'Executable MCP server (stdio and HTTP)' }
         }
     }
@@ -21,7 +24,7 @@ publishing {
         maven { name = 'executableVerification'; url = layout.buildDirectory.dir('executable-repository') }
     }
 }
-if (providers.gradleProperty('publishCanonicalArtifacts').map { it.toBoolean() }.getOrElse(false)) {
+if (canonicalExecutable) {
     tasks.named('bootJar') { enabled = false; setDependsOn([]) }
     tasks.withType(org.gradle.api.publish.maven.tasks.PublishToMavenRepository).configureEach {
         doFirst {
