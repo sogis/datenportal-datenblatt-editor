@@ -1,0 +1,72 @@
+// Publish the executable application in addition to the existing container images.
+apply plugin: 'maven-publish'
+publishing {
+    publications {
+        executable(MavenPublication) {
+            artifactId = rootProject.name
+            artifact(tasks.named('bootJar')) { classifier = 'boot' }
+            pom { name = rootProject.name; description = 'Executable MCP server (stdio and HTTP)' }
+        }
+    }
+    repositories {
+        maven {
+            name = 'executableSnapshots'
+            url = uri('https://jars.interlis.guru/snapshots/')
+            authentication { basic(org.gradle.authentication.http.BasicAuthentication) }
+            credentials {
+                username = providers.environmentVariable('MAVEN_USERNAME').orNull
+                password = providers.environmentVariable('MAVEN_PASSWORD').orNull
+            }
+        }
+        maven { name = 'executableVerification'; url = layout.buildDirectory.dir('executable-repository') }
+    }
+}
+if (providers.gradleProperty('publishCanonicalArtifacts').map { it.toBoolean() }.getOrElse(false)) {
+    tasks.named('bootJar') { enabled = false; setDependsOn([]) }
+    tasks.withType(org.gradle.api.publish.maven.tasks.PublishToMavenRepository).configureEach {
+        doFirst {
+            if (!tasks.named('bootJar').get().archiveFile.get().asFile.isFile())
+                throw new GradleException('Missing tested canonical boot JAR')
+        }
+    }
+}
+
+// Read back the actual Maven artifact, compare bytes, then exercise stdio directly.
+tasks.register('verifyPublishedExecutable') {
+    doLast {
+        def artifact = rootProject.name
+        def download = layout.buildDirectory.file('downloaded/' + artifact + '.jar').get().asFile
+        download.parentFile.mkdirs()
+        def base = providers.gradleProperty('executableRepository').getOrElse('https://jars.interlis.guru/snapshots/')
+        def uri = new URI(base.endsWith('/') ? base : base + '/').resolve("ch/so/agi/${artifact}/${version}/${artifact}-${version}-boot.jar")
+        if (uri.scheme == 'file') download.bytes = new File(uri).bytes
+        else {
+            def response = java.net.http.HttpClient.newBuilder().followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build().send(
+                java.net.http.HttpRequest.newBuilder(uri).timeout(java.time.Duration.ofSeconds(60)).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofByteArray())
+            if (response.statusCode() != 200) throw new GradleException('Published executable could not be downloaded')
+            download.bytes = response.body()
+        }
+        def tested = tasks.named('bootJar').get().archiveFile.get().asFile
+        if (java.nio.file.Files.mismatch(tested.toPath(), download.toPath()) != -1L) throw new GradleException('Published executable differs from tested JAR')
+        def javaExecutable = javaToolchains.launcherFor { languageVersion = JavaLanguageVersion.of(21) }.get().executablePath.asFile.absolutePath
+        def child = new ProcessBuilder(javaExecutable, '-Dspring.profiles.active=stdio', '-jar', download.absolutePath)
+            .redirectError(ProcessBuilder.Redirect.DISCARD).start()
+        def pool = java.util.concurrent.Executors.newSingleThreadExecutor()
+        try {
+            def output = child.outputStream.newWriter('UTF-8')
+            def input = child.inputStream.newReader('UTF-8')
+            def result = pool.submit({ ->
+                output.write('{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"release-check","version":"1"}}}\n'); output.flush()
+                def hello = new groovy.json.JsonSlurper().parseText(input.readLine())
+                if (hello.id != 1 || !hello.result?.capabilities?.tools) throw new GradleException('MCP initialization failed')
+                output.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n'); output.flush()
+                def tools = new groovy.json.JsonSlurper().parseText(input.readLine())
+                if (tools.id != 2 || !tools.result?.tools?.any { it.name == (artifact == 'datasheet-mcp' ? 'describe_schema' : 'authorIliModel') }) throw new GradleException('MCP tools missing')
+                return true
+            } as java.util.concurrent.Callable)
+            result.get(90, java.util.concurrent.TimeUnit.SECONDS)
+            output.close()
+            if (!child.waitFor(10, java.util.concurrent.TimeUnit.SECONDS) || child.exitValue() != 0) throw new GradleException('MCP did not close cleanly on EOF')
+        } finally { child.destroyForcibly(); pool.shutdownNow() }
+    }
+}

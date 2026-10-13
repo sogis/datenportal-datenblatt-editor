@@ -7,9 +7,9 @@ stellt fachliche Werkzeuge, XTF-Verarbeitung und INTERLIS-Validierung bereit.
 
 ## Start
 
-JDK **25** installieren und für den Start auswählen (beispielsweise mit
-`sdk use java 25.0.3-tem`, sofern diese SDKMAN-Version installiert ist).
-Die Gradle-Toolchain findet ein installiertes JDK 25 automatisch; der
+JDK **21** installieren und für den Start auswählen (beispielsweise mit
+`sdk use java 21.0.7-tem`, sofern diese SDKMAN-Version installiert ist).
+Die Gradle-Toolchain findet ein installiertes JDK 21 automatisch; der
 direkte JAR-Aufruf verwendet dagegen das mit `java -version` angezeigte JDK.
 
 Alle folgenden Gradle-Befehle im Verzeichnis `mcp-java` ausführen:
@@ -57,7 +57,7 @@ mit `java -jar` oder Docker; Gradle-Ausgaben sind kein MCP-Protokoll.
 
 ## Versionen und Aufbau
 
-Java 25, Gradle 9.7.1 (Groovy), Spring Boot 4.1.1, Dependency-Management-Plugin
+Java 21, Gradle 9.7.1 (Groovy), Spring Boot 4.1.1, Dependency-Management-Plugin
 1.1.7, Spring AI 2.0.1 und MCP-SDK 2.0.1 (explizite BOM). INTERLIS: ilivalidator
 1.15.0, iox-ili 1.24.4, iox-api 1.0.4, ili2c-core/-tool 5.6.8 und ehibasics 1.4.1.
 Die Spring-/MCP-Versionen entsprechen dem Referenzprojekt;
@@ -252,7 +252,7 @@ docker run --rm -i -e SPRING_PROFILES_ACTIVE=stdio datasheet-mcp
 ```
 
 Das Image enthält den Java-MCP und läuft als unprivilegierter Benutzer mit
-Java 25. Datenbank und persistente Entwurfs-Volumes sind nicht erforderlich.
+Java 21. Datenbank und persistente Entwurfs-Volumes sind nicht erforderlich.
 Das bestehende Editor-Image enthält weiterhin die Weboberfläche.
 
 Der eigene Workflow `.github/workflows/publish-mcp-container.yml` prüft bei
@@ -273,7 +273,7 @@ Tags auf beide Plattformen geprüft. Docker Hub verwendet die bestehenden
 Secrets `DOCKERHUB_USERNAME` und `DOCKERHUB_TOKEN`; GHCR nutzt `GITHUB_TOKEN`.
 Der Webeditor-Workflow und seine Registries bleiben erhalten.
 
-Lokale Prüfungen des CI-Targets (JDK 25 auch für den Modellcompiler auswählen):
+Lokale Prüfungen des CI-Targets (JDK 21 auch für den Modellcompiler auswählen):
 
 ```sh
 ./gradlew check bootJar
@@ -457,3 +457,7 @@ docker rm -f datasheet-openwebui-test
 Bei Bedarf sind `OPENWEBUI_URL`, `DATASHEET_TEST_MCP_URL` und `DATASHEET_TEST_XTF`
 für das Testskript konfigurierbar. Für den Download-Test wird die öffentliche
 Loopback-Adresse von Port 18080 innerhalb des Containers auf den Docker-Host umgesetzt.
+
+## Executable Maven artifact
+
+The tested bootJar is also published as `ch.so.agi:datasheet-mcp:<version>:boot@jar` to `https://jars.interlis.guru/snapshots/`, using `MAVEN_USERNAME` and `MAVEN_PASSWORD`. Container builds and publication remain enabled. CI downloads the published JAR, compares it with the tested artifact and checks stdio initialization, tools and EOF shutdown. Run with JDK 21 and `java -Dspring.profiles.active=stdio -jar datasheet-mcp.jar`.

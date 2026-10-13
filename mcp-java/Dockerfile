@@ -1,10 +1,10 @@
-FROM gradle:9.7.1-jdk25 AS build
+FROM gradle:9.7.1-jdk21 AS build
 WORKDIR /app
-COPY settings.gradle build.gradle gradle.properties ./
+COPY settings.gradle build.gradle boot-publishing.gradle gradle.properties ./
 COPY src ./src
 RUN gradle bootJar --no-daemon
 
-FROM eclipse-temurin:25-jre-noble AS runtime
+FROM eclipse-temurin:21-jre-noble AS runtime
 ARG IMAGE_VERSION=local
 ARG GIT_COMMIT=unknown
 ARG SOURCE_REPOSITORY=https://github.com/sogis/datenportal-datenblatt-editor

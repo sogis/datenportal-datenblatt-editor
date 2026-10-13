@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
           cache: gradle
       - uses: actions/setup-node@v6
         with:
@@ -35,7 +35,7 @@ jobs:
       - run: npm ci
       - name: Test both MCP transports and build the canonical JAR
         working-directory: mcp-java
-        run: ./gradlew --no-daemon clean check bootJar
+        run: ./gradlew --no-daemon clean check bootJar -PmcpVersion=$IMAGE_VERSION
       - name: Check the real editor parser
         working-directory: mcp-java
         run: node scripts/check-editor.mjs
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
       - uses: actions/download-artifact@v4
         with:
           name: canonical-mcp-jar
@@ -116,6 +116,20 @@ jobs:
         with:
           pattern: verified-mcp-image-*
           path: verified-images
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@v4
+        with:
+          name: canonical-mcp-jar
+          path: mcp-java/build/libs
+      - name: Publish the tested executable JAR
+        working-directory: mcp-java
+        env:
+          MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+        run: ./gradlew --no-daemon -PmcpVersion=$IMAGE_VERSION -PpublishCanonicalArtifacts=true publishExecutablePublicationToExecutableSnapshotsRepository verifyPublishedExecutable
       - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:

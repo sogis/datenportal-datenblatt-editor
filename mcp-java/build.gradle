@@ -4,8 +4,8 @@ plugins {
     id 'io.spring.dependency-management' version '1.1.7'
 }
 group = 'ch.so.agi'
-version = '0.2.0'
-java { toolchain { languageVersion = JavaLanguageVersion.of(25) } }
+version = providers.gradleProperty('mcpVersion').getOrElse('0.2.0')
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 repositories {
     mavenCentral()
     maven { url = uri('https://jars.interlis.ch') }
@@ -54,3 +54,7 @@ tasks.register('e2eTest', Test) {
     shouldRunAfter tasks.test
 }
 tasks.named('check') { dependsOn tasks.named('e2eTest') }
+
+apply from: "$rootDir/boot-publishing.gradle"
+
+tasks.withType(JavaCompile).configureEach { options.release = 21 }
