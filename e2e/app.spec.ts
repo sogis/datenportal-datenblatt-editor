@@ -4,6 +4,15 @@ function actionCard(page: Page, heading: string) {
   return page.locator(".action-card").filter({ has: page.getByRole("heading", { name: heading }) });
 }
 
+async function expectFixedMetadata(page: Page): Promise<void> {
+  const accessLevel = page.getByLabel("Zugänglichkeit *");
+  const publicationStatus = page.getByLabel("Publikationsstatus *");
+  await expect(accessLevel).toHaveValue("Öffentlich, frei zugänglich");
+  await expect(publicationStatus).toHaveValue("Veröffentlicht");
+  await expect(accessLevel).not.toBeEditable();
+  await expect(publicationStatus).not.toBeEditable();
+}
+
 async function expectVerticalGap(first: Locator, second: Locator, expectedPx: number): Promise<void> {
   const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
   expect(firstBox).not.toBeNull();
@@ -23,6 +32,7 @@ async function createLocalDraft(page: Page, expectedCount: number): Promise<void
   await expect(contextBar).toHaveCSS("padding-left", "16px");
   await expect(contextBar).toHaveCSS("background-color", "rgb(231, 246, 236)");
   await expect(contextBar.locator(".status-pill")).toHaveCount(0);
+  await expectFixedMetadata(page);
   await page.getByRole("link", { name: "Start" }).click();
   await expect(page.locator(".context-bar")).toHaveCount(0);
   await expect(page.locator(".draft-card")).toHaveCount(expectedCount);
@@ -115,13 +125,10 @@ test("creates and navigates a dataset series workspace", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Vorschau", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Datenblatt exportieren" })).toBeDisabled();
 
-  await expect(page.getByLabel("Zugänglichkeit *")).toHaveValue("open");
-  await expect(page.getByLabel("Zugänglichkeit *")).toBeEnabled();
-  await page.getByLabel("Zugänglichkeit *").selectOption("restricted");
+  await expectFixedMetadata(page);
   await page.getByLabel("Identifier *").fill("ch.foo");
   await page.getByLabel("Titel *").fill("Ch Foo");
   await page.getByLabel("Beschreibung *").fill("Serienbeschreibung");
-  await page.getByLabel("Publikationsstatus *").selectOption("published");
   await page.getByLabel("Datenherr *").selectOption("ch.so.agi");
   await page.getByLabel("E-Mail / URI *").fill("mailto:kontakt@example.org");
   await page.getByText("Bevölkerung").click();
@@ -144,7 +151,7 @@ test("creates and navigates a dataset series workspace", async ({ page }) => {
   await expect(page.getByText("IssueLabel ist ein Pflichtfeld.")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Ausgabe hinzufügen" }).click();
-  await expect(page.getByLabel("Publikationsstatus *")).toHaveValue("published");
+  await expectFixedMetadata(page);
 
   const issueListBox = await page.locator(".series-issue-list").boundingBox();
   const issueEditorBox = await page.locator(".series-workspace__editor").boundingBox();
@@ -182,6 +189,8 @@ test("creates and navigates a dataset series workspace", async ({ page }) => {
 
   await page.getByRole("link", { name: "Vorschau", exact: true }).click();
   await expect(page.locator(".preview-panel")).toContainText("<DatasetSeries");
+  await expect(page.locator(".preview-panel")).toContainText("<accessLevel>open</accessLevel>");
+  await expect(page.locator(".preview-panel")).toContainText("<publicationStatus>published</publicationStatus>");
   expect(runtimeErrors.filter((message) => message.includes("Maximum recursive updates exceeded"))).toEqual([]);
 });
 

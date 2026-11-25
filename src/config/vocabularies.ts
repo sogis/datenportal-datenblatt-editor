@@ -44,9 +44,12 @@ export const accrualPeriodicityOptions = [
   { value: "unknown", label: "Unbekannt" }
 ];
 
+export const fixedAccessLevel = { value: "open", label: "Öffentlich, frei zugänglich" } as const;
+export const fixedPublicationStatus = { value: "published", label: "Veröffentlicht" } as const;
+
 export const accessLevelOptions = [
   { value: "", label: "Bitte wählen" },
-  { value: "open", label: "Öffentlich, frei zugänglich" },
+  fixedAccessLevel,
   { value: "public_with_conditions", label: "Öffentlich, aber mit Bedingungen" },
   { value: "restricted", label: "Eingeschränkt" },
   { value: "internal", label: "Intern / governanceabhängig" },
@@ -57,7 +60,7 @@ export const publicationStatusOptions = [
   { value: "", label: "Bitte wählen" },
   { value: "draft", label: "Entwurf" },
   { value: "in_review", label: "In Prüfung" },
-  { value: "published", label: "Veröffentlicht" },
+  fixedPublicationStatus,
   { value: "archived", label: "Archiviert" }
 ];
 

@@ -56,7 +56,6 @@ export interface DatasetIssue extends DatasetSharedFields {
 
 export type IssueInheritedGroup =
   | "description"
-  | "publicationStatus"
   | "accrualPeriodicity"
   | "modified"
   | "temporalCoverage"

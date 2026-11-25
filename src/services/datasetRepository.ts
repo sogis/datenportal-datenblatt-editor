@@ -1,6 +1,6 @@
 import Dexie, { type Table } from "dexie";
 import type { DatasetDraftRecord, SettingRecord } from "../domain/datasetTypes";
-import { cloneRoot, getDraftKindFromRoot, normalizeImportedJson } from "../domain/normalize";
+import { cloneRootWithFixedMetadata, getDraftKindFromRoot, normalizeImportedJson } from "../domain/normalize";
 
 class DatasetEditorDatabase extends Dexie {
   datasets!: Table<DatasetDraftRecord, string>;
@@ -102,8 +102,7 @@ export class DatasetRepository {
       updatedAt: new Date().toISOString(),
       dirty: false
     };
-    await this.saveDraft(copy);
-    return copy;
+    return this.saveDraft(copy);
   }
 
   async findByIdentifier(
@@ -134,6 +133,6 @@ function cloneDraft(draft: DatasetDraftRecord): DatasetDraftRecord {
   return {
     ...draft,
     draftKind: draft.draftKind ?? getDraftKindFromRoot(draft.data),
-    data: cloneRoot(draft.data)
+    data: cloneRootWithFixedMetadata(draft.data)
   };
 }

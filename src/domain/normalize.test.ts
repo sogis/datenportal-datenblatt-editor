@@ -9,16 +9,17 @@ import {
 } from "./normalize";
 
 describe("createEmptyDatasetRoot", () => {
-  it("prefills new datasets and series with open access", () => {
+  it("prefills new datasets, series and issues with fixed metadata", () => {
     const datasetRoot = createEmptyDatasetRoot();
     const seriesRoot = createEmptyDatasetSeriesRoot();
 
-    expect(datasetRoot.dataset.accessLevel).toBe("open");
-    expect(seriesRoot.series.accessLevel).toBe("open");
+    expect(datasetRoot.dataset).toMatchObject({ accessLevel: "open", publicationStatus: "published" });
+    expect(seriesRoot.series).toMatchObject({ accessLevel: "open", publicationStatus: "published" });
     expect(seriesRoot.series.auxiliaryData).toBe("");
     expect(seriesRoot.series.issues).toEqual([]);
 
     const issue = createEmptyDatasetIssue(seriesRoot.series, { isCurrentIssue: true });
+    expect(issue.publicationStatus).toBe("published");
     expect(issue.auxiliaryData).toBe("");
   });
 });
@@ -38,6 +39,7 @@ describe("normalizeImportedJson", () => {
     expect(result.importShape).toBe("xtf");
     expect(result.root.type).toBe("Dataset");
     expect(result.root.dataset.identifier).toBe("so.afu.nitratmessungen");
+    expect(result.root.dataset).toMatchObject({ accessLevel: "open", publicationStatus: "published" });
   });
 
   it("keeps root wrapped datasets", () => {
@@ -92,8 +94,8 @@ describe("normalizeImportedJson", () => {
         identifier: "ch.foo",
         title: "Ch Foo",
         description: "Serienbeschreibung",
-        accessLevel: "open",
-        publicationStatus: "published",
+        accessLevel: "restricted",
+        publicationStatus: "draft",
         creatorRef: "creator",
         contactPoint: {
           email: "kontakt@example.org"
@@ -104,7 +106,9 @@ describe("normalizeImportedJson", () => {
         model: "SO_AGI_DataModel",
         issues: [
           {
-            issueLabel: "2026"
+            issueLabel: "2026",
+            publicationStatus: "archived",
+            __localIssueState: { inheritedGroups: { publicationStatus: false } }
           }
         ]
       }
@@ -117,9 +121,11 @@ describe("normalizeImportedJson", () => {
 
     const issue = result.root.series.issues?.[0];
 
+    expect(result.root.series).toMatchObject({ accessLevel: "open", publicationStatus: "published" });
     expect(issue?.identifier).toBe("ch.foo_2026");
     expect(issue?.title).toBe("Ch Foo 2026");
     expect(issue?.publicationStatus).toBe("published");
+    expect(issue?.__localIssueState?.inheritedGroups).not.toHaveProperty("publicationStatus");
     expect(issue?.model).toBe("SO_AGI_DataModel");
     expect(issue?.__localIssueState?.inheritedGroups?.model).toBe(true);
     expect(issue?.__localIssueState?.autoIdentifier).toBe(true);

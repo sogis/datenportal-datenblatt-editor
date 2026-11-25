@@ -1,3 +1,4 @@
+import { fixedPublicationStatus } from "../config/vocabularies";
 import type {
   DatasetAttribute,
   DatasetIssue,
@@ -10,7 +11,6 @@ import type {
 
 export const issueInheritedGroups = [
   "description",
-  "publicationStatus",
   "accrualPeriodicity",
   "modified",
   "temporalCoverage",
@@ -46,7 +46,6 @@ export function deriveImportedIssueState(rawIssue: JsonObject): LocalIssueState 
     autoTitle: !hasOwn(rawIssue, "title"),
     inheritedGroups: {
       description: !hasOwn(rawIssue, "description"),
-      publicationStatus: !hasOwn(rawIssue, "publicationStatus"),
       accrualPeriodicity: !hasOwn(rawIssue, "accrualPeriodicity"),
       modified: !hasOwn(rawIssue, "modified"),
       temporalCoverage: !hasOwn(rawIssue, "temporalCoverage"),
@@ -128,6 +127,7 @@ export function syncIssueFromSeriesDefaults(series: DatasetSeries, issue: Datase
 export function createEffectiveIssue(series: DatasetSeries, issue: DatasetIssue): DatasetIssue {
   const effective: DatasetIssue = {
     ...issue,
+    publicationStatus: fixedPublicationStatus.value,
     temporalCoverage: cloneTemporalCoverage(issue.temporalCoverage),
     attributes: cloneAttributes(issue.attributes)
   };
@@ -156,7 +156,6 @@ function inferIssueStateFromCurrentValues(issue: DatasetIssue): LocalIssueState 
     autoTitle: !hasText(issue.title),
     inheritedGroups: {
       description: !hasText(issue.description),
-      publicationStatus: !hasText(issue.publicationStatus),
       accrualPeriodicity: !hasText(issue.accrualPeriodicity),
       modified: !hasText(issue.modified),
       temporalCoverage: isEmptyTemporalCoverage(issue.temporalCoverage),
@@ -172,9 +171,6 @@ function assignGroupFromSeries(target: DatasetIssue, series: DatasetSeries, grou
   switch (group) {
     case "description":
       target.description = series.description ?? "";
-      return;
-    case "publicationStatus":
-      target.publicationStatus = series.publicationStatus ?? "";
       return;
     case "accrualPeriodicity":
       target.accrualPeriodicity = series.accrualPeriodicity ?? "";

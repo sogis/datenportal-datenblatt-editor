@@ -219,7 +219,7 @@ export function validateDatasetSeries(root: DatasetSeriesRootJson, activeIssueId
     const issuePath = `$.series.issues[${index}]`;
     const effectiveIssue = createEffectiveIssue(root.series, issueEntry);
 
-    validateIssueMetadata(entryIssues, root.series, issueEntry, effectiveIssue, issuePath);
+    validateIssueMetadata(entryIssues, issueEntry, effectiveIssue, issuePath);
 
     if (!hasProblems(entryIssues)) {
       entryIssues.push(success("issue-ok", issuePath, "Diese Ausgabe hat keine offenen Probleme."));
@@ -303,16 +303,13 @@ function validateSeriesMetadata(issues: ValidationIssue[], datasetSeries: Datase
 
 function validateIssueMetadata(
   issues: ValidationIssue[],
-  _series: DatasetSeries,
   datasetIssue: DatasetIssue,
   effectiveIssue: DatasetIssue,
   prefix: string
 ): void {
   pushRequired(issues, effectiveIssue.identifier, `${prefix}.identifier`, "Identifier ist ein Pflichtfeld.");
-  pushIssueRequired(
+  pushRequired(
     issues,
-    datasetIssue,
-    "publicationStatus",
     effectiveIssue.publicationStatus,
     `${prefix}.publicationStatus`,
     "PublicationStatus ist ein Pflichtfeld."
@@ -513,21 +510,6 @@ function pushRequired(issues: ValidationIssue[], value: string | undefined, path
   if (!value?.trim()) {
     issues.push(issue("error", "required", path, message));
   }
-}
-
-function pushIssueRequired(
-  issues: ValidationIssue[],
-  datasetIssue: DatasetIssue,
-  group: "description" | "publicationStatus",
-  value: string | undefined,
-  path: string,
-  message: string
-): void {
-  if (isIssueGroupInherited(datasetIssue, group)) {
-    return;
-  }
-
-  pushRequired(issues, value, path, message);
 }
 
 function validateEnumField(

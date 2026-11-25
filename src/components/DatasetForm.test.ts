@@ -87,7 +87,7 @@ describe("DatasetForm", () => {
     expect(dataset.model).toBe("SO_AGI_DataCatalog_Base_20260529");
   });
 
-  it("renders access level as an editable model field", async () => {
+  it("shows fixed access and publication values in read-only fields", async () => {
     const user = userEvent.setup();
     const dataset = createEmptyDatasetRoot().dataset;
 
@@ -97,13 +97,16 @@ describe("DatasetForm", () => {
       }
     });
 
-    const accessLevelSelect = screen.getByLabelText("Zugänglichkeit *");
+    const accessLevel = screen.getByLabelText("Zugänglichkeit *");
+    const publicationStatus = screen.getByLabelText("Publikationsstatus *");
 
-    expect(accessLevelSelect).toHaveValue("open");
-    expect(accessLevelSelect).not.toBeDisabled();
-
-    await user.selectOptions(accessLevelSelect, "restricted");
-    expect(dataset.accessLevel).toBe("restricted");
+    expect(accessLevel).toHaveAttribute("readonly");
+    expect(publicationStatus).toHaveAttribute("readonly");
+    await user.type(accessLevel, "Eingeschränkt");
+    await user.type(publicationStatus, "Entwurf");
+    expect(accessLevel).toHaveValue("Öffentlich, frei zugänglich");
+    expect(publicationStatus).toHaveValue("Veröffentlicht");
+    expect(dataset).toMatchObject({ accessLevel: "open", publicationStatus: "published" });
   });
 
   it("renders the data owner select and stores the selected identifier", async () => {

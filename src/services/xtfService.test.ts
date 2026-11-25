@@ -122,6 +122,23 @@ describe("xtfService", () => {
     ]);
   });
 
+  it("sets fixed metadata when imported XTF has missing or different values", () => {
+    const legacyTransfer = exampleTransfer
+      .replace("<accessLevel>open</accessLevel>", "<accessLevel>restricted</accessLevel>")
+      .replaceAll("<publicationStatus>published</publicationStatus>", "<publicationStatus>archived</publicationStatus>")
+      .replace("<publicationStatus>archived</publicationStatus>", "");
+
+    const [dataset, series] = parseXtfTransfer(legacyTransfer);
+    expect(dataset).toMatchObject({ dataset: { accessLevel: "open", publicationStatus: "published" } });
+    expect(series).toMatchObject({
+      series: {
+        accessLevel: "open",
+        publicationStatus: "published",
+        issues: [{ publicationStatus: "published" }, { publicationStatus: "published" }]
+      }
+    });
+  });
+
   it("serializes a dataset to xtf", () => {
     const root = createEmptyDatasetRoot();
     root.dataset.identifier = "so.afu.test";
@@ -232,7 +249,9 @@ describe("xtfService", () => {
     ]);
     expect(xml).toContain("<ClosedTemporalCoverage>");
     expect(xml).not.toContain("remarks");
-    expect(xml).not.toContain("<accessLevel>restricted</accessLevel></DatasetIssue>");
+    expect(dataset.getElementsByTagName("accessLevel")[0]?.textContent).toBe("open");
+    expect(dataset.getElementsByTagName("publicationStatus")[0]?.textContent).toBe("published");
+    expect(root.dataset).toMatchObject({ accessLevel: "restricted", publicationStatus: "in_review" });
 
     const parsed = serializeToXtf(
       parseXtfTransfer(xml)[0] ?? createEmptyDatasetRoot()
@@ -246,7 +265,7 @@ describe("xtfService", () => {
     root.series.title = "Reihe";
     root.series.description = "Beschreibung";
     root.series.accessLevel = "internal";
-    root.series.publicationStatus = "published";
+    root.series.publicationStatus = "draft";
     root.series.creatorRef = "ch.so.astat";
     root.series.contactPoint!.email = "mailto:statistik@fd.so.ch";
     root.series.themes = ["Bevoelkerung"];
@@ -260,7 +279,7 @@ describe("xtfService", () => {
     issue.description = "Ausgabe 2026";
     issue.issueLabel = "2026";
     issue.isCurrentIssue = true;
-    issue.publicationStatus = "published";
+    issue.publicationStatus = "archived";
     issue.accrualPeriodicity = "annually";
     issue.modified = "2026-12-31";
     issue.temporalCoverage = { referenceDate: "2026-12-31" };
@@ -297,7 +316,11 @@ describe("xtfService", () => {
     ]);
     expect(xml).toContain("<auxiliaryData>Registerdaten</auxiliaryData>");
     expect(xml).toContain("<auxiliaryData>Ausgabenspezifische Zusatzdaten</auxiliaryData>");
-    expect(xml).not.toContain("<accessLevel>open</accessLevel>");
+    expect(Array.from(document.getElementsByTagName("accessLevel"), (element) => element.textContent)).toEqual(["open"]);
+    expect(Array.from(document.getElementsByTagName("publicationStatus"), (element) => element.textContent)).toEqual([
+      "published",
+      "published"
+    ]);
   });
 
   it("rejects fields that are not part of the current model", () => {

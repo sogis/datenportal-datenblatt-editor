@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { DatasetIssue, IssueInheritedGroup } from "../domain/datasetTypes";
-import { publicationStatusOptions } from "../config/vocabularies";
+import { fixedAccessLevel, fixedPublicationStatus } from "../config/vocabularies";
 import {
   disableIssueIdentifierAuto,
   disableIssueTitleAuto,
@@ -88,18 +88,21 @@ function markOverridden(group: IssueInheritedGroup): void {
           />
           <p class="field-help">{{ (issue.description ?? "").length }} / 1024 Zeichen</p>
         </div>
-        <div class="field-row">
-          <label for="issue-publication-status">Publikationsstatus *</label>
-          <select
-            id="issue-publication-status"
-            v-model="issue.publicationStatus"
-            class="select"
-            @change="markOverridden('publicationStatus')"
-          >
-            <option v-for="option in publicationStatusOptions" :key="option.value" :value="option.value">
-              {{ option.label }}
-            </option>
-          </select>
+        <div class="inline-grid">
+          <div class="field-row">
+            <label for="issue-access-level">Zugänglichkeit *</label>
+            <input id="issue-access-level" :value="fixedAccessLevel.label" class="text-input" type="text" readonly />
+          </div>
+          <div class="field-row">
+            <label for="issue-publication-status">Publikationsstatus *</label>
+            <input
+              id="issue-publication-status"
+              :value="fixedPublicationStatus.label"
+              class="text-input"
+              type="text"
+              readonly
+            />
+          </div>
         </div>
         <label class="checkbox-item">
           <input

@@ -1,3 +1,4 @@
+import { fixedAccessLevel, fixedPublicationStatus } from "../config/vocabularies";
 import type {
   ContactPoint,
   Dataset,
@@ -20,7 +21,6 @@ import {
 } from "./seriesIssues";
 
 export const DEFAULT_SCHEMA_VERSION = "2026-05-23";
-export const DEFAULT_ACCESS_LEVEL = "open";
 
 export class DatasetImportError extends Error {
   code: string;
@@ -196,12 +196,22 @@ export function normalizeImportedJson(
   };
 }
 
-export function cloneRoot(root: EditableRootJson): EditableRootJson {
-  return JSON.parse(JSON.stringify(root)) as EditableRootJson;
+export function cloneRootWithFixedMetadata(root: EditableRootJson): EditableRootJson {
+  const cloned = JSON.parse(JSON.stringify(root)) as EditableRootJson;
+  const series = isDatasetSeriesRoot(cloned) ? cloned.series : undefined;
+  const dataset = cloned.type === "Dataset" ? cloned.dataset : cloned.series;
+  dataset.accessLevel = fixedAccessLevel.value;
+  dataset.publicationStatus = fixedPublicationStatus.value;
+
+  for (const issue of series?.issues ?? []) {
+    issue.publicationStatus = fixedPublicationStatus.value;
+  }
+
+  return cloned;
 }
 
 export function toExportRoot(root: EditableRootJson): EditableRootJson {
-  const cloned = cloneRoot(root);
+  const cloned = cloneRootWithFixedMetadata(root);
 
   if (!isDatasetSeriesRoot(cloned)) {
     return cloned;
@@ -220,8 +230,8 @@ function createEmptyDataset(): Dataset {
     identifier: "",
     title: "",
     description: "",
-    accessLevel: DEFAULT_ACCESS_LEVEL,
-    publicationStatus: "",
+    accessLevel: fixedAccessLevel.value,
+    publicationStatus: fixedPublicationStatus.value,
     creatorRef: "",
     contactPoint: {
       name: "",
@@ -251,7 +261,7 @@ function createEmptyDatasetIssueFields(): DatasetIssue {
     description: "",
     issueLabel: "",
     isCurrentIssue: false,
-    publicationStatus: "",
+    publicationStatus: fixedPublicationStatus.value,
     accrualPeriodicity: "",
     modified: "",
     temporalCoverage: {},
@@ -271,8 +281,8 @@ function hydrateDataset(dataset: JsonObject, isSeries = false): Dataset {
     identifier: textValue(dataset.identifier),
     title: textValue(dataset.title),
     description: textValue(dataset.description),
-    accessLevel: textValue(dataset.accessLevel),
-    publicationStatus: textValue(dataset.publicationStatus),
+    accessLevel: fixedAccessLevel.value,
+    publicationStatus: fixedPublicationStatus.value,
     creatorRef: textValue(dataset.creatorRef),
     contactPoint: hydrateContactPoint(dataset.contactPoint),
     themes: Array.isArray(dataset.themes) ? dataset.themes.filter(isString) : [],
@@ -309,7 +319,7 @@ function hydrateIssue(issue: JsonObject, series?: DatasetSeries): DatasetIssue {
     identifier: textValue(issue.identifier),
     title: textValue(issue.title),
     description: textValue(issue.description),
-    publicationStatus: textValue(issue.publicationStatus),
+    publicationStatus: fixedPublicationStatus.value,
     accrualPeriodicity: textValue(issue.accrualPeriodicity),
     modified: textValue(issue.modified),
     temporalCoverage: hydrateTemporalCoverage(issue.temporalCoverage),

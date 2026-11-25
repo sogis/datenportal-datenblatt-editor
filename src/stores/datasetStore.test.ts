@@ -82,7 +82,7 @@ vi.mock("../services/datasetRepository", () => {
 
 import { useDatasetStore } from "./datasetStore";
 
-describe("datasetStore access levels", () => {
+describe("datasetStore fixed metadata", () => {
   beforeEach(() => {
     repositoryState.drafts.clear();
     repositoryState.settings.clear();
@@ -91,9 +91,10 @@ describe("datasetStore access levels", () => {
     setActivePinia(createPinia());
   });
 
-  it("preserves existing non-open access levels when opening drafts", async () => {
+  it("sets fixed metadata when reopening and saving a legacy draft", async () => {
     const root = createEmptyDatasetRoot();
     root.dataset.accessLevel = "restricted";
+    root.dataset.publicationStatus = "draft";
 
     const draft: DatasetDraftRecord = {
       id: "draft-1",
@@ -114,16 +115,19 @@ describe("datasetStore access levels", () => {
 
     expect(openedDraft).not.toBeNull();
     expect(store.currentDraft).not.toBeNull();
-    expect(openedDraft && isDatasetRoot(openedDraft.data) ? openedDraft.data.dataset.accessLevel : null).toBe("restricted");
-    expect(
-      store.currentDraft && isDatasetRoot(store.currentDraft.data) ? store.currentDraft.data.dataset.accessLevel : null
-    ).toBe("restricted");
+    const fixedMetadata = { accessLevel: "open", publicationStatus: "published" };
+    expect(openedDraft?.data).toMatchObject({ dataset: fixedMetadata });
+    expect(store.currentDraft?.data).toMatchObject({ dataset: fixedMetadata });
+
+    await store.persistCurrentDraft();
+    expect(repositoryState.drafts.get(draft.id)?.data).toMatchObject({ dataset: fixedMetadata });
   });
 
-  it("preserves imported access levels before persisting them", async () => {
+  it("sets fixed metadata before persisting an import", async () => {
     const store = useDatasetStore();
     const root = createEmptyDatasetRoot();
     root.dataset.accessLevel = "internal";
+    root.dataset.publicationStatus = "in_review";
 
     const preview: ImportPreview = {
       draftKind: "dataset",
@@ -138,12 +142,9 @@ describe("datasetStore access levels", () => {
 
     expect(persistedDraft).not.toBeNull();
     expect(store.currentDraft).not.toBeNull();
-    expect(
-      persistedDraft && isDatasetRoot(persistedDraft.data) ? persistedDraft.data.dataset.accessLevel : null
-    ).toBe("internal");
-    expect(
-      store.currentDraft && isDatasetRoot(store.currentDraft.data) ? store.currentDraft.data.dataset.accessLevel : null
-    ).toBe("internal");
+    const fixedMetadata = { accessLevel: "open", publicationStatus: "published" };
+    expect(persistedDraft?.data).toMatchObject({ dataset: fixedMetadata });
+    expect(store.currentDraft?.data).toMatchObject({ dataset: fixedMetadata });
   });
 });
 

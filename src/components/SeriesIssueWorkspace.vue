@@ -127,7 +127,6 @@ const seriesDefaultsSignature = computed(() =>
     identifier: props.series.identifier ?? "",
     title: props.series.title ?? "",
     description: props.series.description ?? "",
-    publicationStatus: props.series.publicationStatus ?? "",
     accrualPeriodicity: props.series.accrualPeriodicity ?? "",
     modified: props.series.modified ?? "",
     temporalCoverage: props.series.temporalCoverage ?? {},

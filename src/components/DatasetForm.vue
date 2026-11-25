@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { defaultOfficeCatalogUrl } from "../config/metadataSources";
 import type { Dataset, DatasetSeries } from "../domain/datasetTypes";
-import { accessLevelOptions, publicationStatusOptions } from "../config/vocabularies";
+import { fixedAccessLevel, fixedPublicationStatus } from "../config/vocabularies";
 import { loadOfficeCatalog } from "../services/endpointLoader";
 import SharedMetadataSections from "./SharedMetadataSections.vue";
 
@@ -94,19 +94,11 @@ onMounted(async () => {
         <div class="inline-grid">
           <div class="field-row">
             <label for="access-level">Zugänglichkeit *</label>
-            <select id="access-level" v-model="dataset.accessLevel" class="select">
-              <option v-for="option in accessLevelOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
+            <input id="access-level" :value="fixedAccessLevel.label" class="text-input" type="text" readonly />
           </div>
           <div class="field-row">
             <label for="publication-status">Publikationsstatus *</label>
-            <select id="publication-status" v-model="dataset.publicationStatus" class="select">
-              <option v-for="option in publicationStatusOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
+            <input id="publication-status" :value="fixedPublicationStatus.label" class="text-input" type="text" readonly />
           </div>
         </div>
         <div class="field-row">

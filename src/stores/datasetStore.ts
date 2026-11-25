@@ -11,7 +11,7 @@ import type {
   SaveState
 } from "../domain/datasetTypes";
 import {
-  cloneRoot,
+  cloneRootWithFixedMetadata,
   createEmptyDatasetRoot,
   createEmptyDatasetSeriesRoot,
   getRootIdentifier,
@@ -118,14 +118,15 @@ export const useDatasetStore = defineStore("dataset", {
         return null;
       }
 
-      this.currentDraft = draft;
+      const openedDraft = { ...draft, data: cloneRootWithFixedMetadata(draft.data) };
+      this.currentDraft = openedDraft;
       this.sessionSourceType = sourceType;
       this.sessionSourceLabel = draft.sourceLabel ?? "";
       this.appMode = draft.draftKind === "series" ? "editing-series" : "editing-dataset";
       this.saveState = "saved";
       this.saveError = "";
       this.changeRevision = 0;
-      return draft;
+      return openedDraft;
     },
 
     async createNewDraft(): Promise<DatasetDraftRecord> {
@@ -253,7 +254,7 @@ export const useDatasetStore = defineStore("dataset", {
       const draftAtStart = this.currentDraft;
       const draftIdAtStart = draftAtStart.id;
       const revisionAtStart = this.changeRevision;
-      const dataAtStart = cloneRoot(draftAtStart.data);
+      const dataAtStart = cloneRootWithFixedMetadata(draftAtStart.data);
 
       this.saveInFlight = true;
       this.saveState = "saving";
@@ -318,7 +319,7 @@ export const useDatasetStore = defineStore("dataset", {
 
     async persistPreview(preview: ImportPreview, overrideId?: string): Promise<DatasetDraftRecord> {
       const now = timestamp();
-      const root = cloneRoot(preview.root);
+      const root = cloneRootWithFixedMetadata(preview.root);
       const draft = await repository.saveDraft({
         id: overrideId ?? crypto.randomUUID(),
         draftKind: preview.draftKind,
